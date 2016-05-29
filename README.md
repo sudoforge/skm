@@ -22,10 +22,12 @@ list these below:
 
 ## Installation
 
-```txt
+```bash
 git clone https://github.com/bddenhartog/simple-key-manager
 
 cd simple-key-manager
+
+chmod u+x skm
 
 ln -sf $(pwd)/skm /usr/bin/skm
 ```
