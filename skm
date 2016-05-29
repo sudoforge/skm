@@ -1,0 +1,152 @@
+#!/bin/sh
+
+private=~/.ssh/private
+public=~/.ssh/public
+sp="    "
+
+declare -A keys
+keys[ops]=$private/ops.*
+keys[vcs]=$private/vcs.*
+
+function moveKeyfile()
+{
+    local shortname=`echo $1 | sed -e 's/.*disabled.//'`
+    printf "$sp$shortname... ["
+    if [ -e $1 ] && [ ! -e $2 ]; then
+        mv $1 $2
+
+        if [ $? -eq 0 ]; then
+            printf "OKAY"
+        else
+            printf "FAIL"
+        fi
+    elif [ -e $2 ]; then
+        printf "SKIP"
+    else
+        printf "MISS"
+    fi
+
+    printf "]\n"
+}
+
+function addToAgentByPrefix()
+{
+    if [ ${#@} -eq 0 ]; then
+        echo "No keys matching the given pattern."
+    else
+        ssh-add $@
+    fi
+}
+
+function echoStringIfNotEmpty()
+{
+    if [[ ! -z "$1" ]]; then
+        echo "$sp$sp$1"
+    fi
+}
+
+function echoActiveKeys()
+{
+    local output=`ssh-add -L | sed -e 's/.*private\///' | sed -e 's/ssh-rsa.*//'`
+
+    for key in $output; do
+        echoStringIfNotEmpty $key
+    done
+}
+
+function echoEnabledKeys()
+{
+    local keyfiles=$private/*
+
+    for key in $keyfiles; do
+        local string=`echo $key | sed -e 's/.*private\///' | sed -e 's/disabled.*//'`
+        echoStringIfNotEmpty $string
+    done
+}
+
+function echoDisabledKeys()
+{
+    local keyfiles=$private/disabled*
+
+    for key in $keyfiles; do
+        local string=`echo $key | sed -e 's/.*private\/disabled.//'`
+        echoStringIfNotEmpty $string
+    done
+}
+
+case "$1" in
+    disable)
+        shift
+        echo "Disabling:"
+        for keyfile in $@; do
+            moveKeyfile $private/$keyfile $private/disabled.$keyfile
+        done
+        ;;
+    enable)
+        shift
+        echo "Enabling:"
+        for keyfile in $@; do
+            moveKeyfile $private/disabled.$keyfile $private/$keyfile
+        done
+        ;;
+    export)
+        shift
+        echo "Listing public key information:" && echo
+
+        for keyfile in $@; do
+            pubfile="$public/$keyfile.pub"
+            privfile="$private/$keyfile"
+            disabled="$private/disabled.$keyfile"
+
+            printf "[ $keyfile ] "
+            if [ -e $disabled ]; then
+                printf "is disabled, skipping.\n"
+            elif [ ! -e $privfile ]; then
+                printf "missing private key, skipping.\n"
+            elif [ ! -e $pubfile ]; then
+                printf "missing private key, skipping.\n"
+            elif [ ! -r $pubfile ]; then
+                printf "public key is not readable, skipping.\n"
+            else
+                printf "\n" && cat $pubfile
+            fi
+
+            echo
+        done
+        ;;
+    vcs)
+        addToAgentByPrefix ${keys[vcs]}
+        ;;
+    ops)
+        addToAgentByPrefix ${keys[ops]}
+        ;;
+    all)
+        echo "Adding all enabled keys:"
+        for list in "${keys[@]}"; do
+            ssh-add $list
+        done
+        ;;
+    ls)
+        echo "Currently active keys:"
+        echoActiveKeys
+        ;;
+    status)
+        echo
+        echo "SKM Status:"
+
+        echo "$sp[ ACTIVE ]"
+        echoActiveKeys
+        echo
+        echo "$sp[ ENABLED ]"
+        echoEnabledKeys
+        echo
+        echo "$sp[ DISABLED ]"
+        echoDisabledKeys
+        ;;
+    clear)
+        ssh-add -D
+        ;;
+    *)
+        exit
+        ;;
+esac
