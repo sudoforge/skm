@@ -126,11 +126,7 @@ case "$1" in
             ssh-add $list
         done
         ;;
-    ls)
-        echo "Currently active keys:"
-        echoActiveKeys
-        ;;
-    status)
+    status|list|ls)
         echo
         echo "SKM Status:"
 
