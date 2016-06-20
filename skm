@@ -1,12 +1,11 @@
 #!/bin/sh
 
-private=~/.ssh/private
-public=~/.ssh/public
+keydir=~/.ssh/keys
 sp="    "
 
 declare -A keys
-keys[ops]=$private/ops.*
-keys[vcs]=$private/vcs.*
+keys[ops]=$(find $keydir -type f ! -name '*.pub' -name 'ops.*')
+keys[vcs]=$(find $keydir -type f ! -name '*.pub' -name 'vcs.*')
 
 function moveKeyfile()
 {
@@ -29,6 +28,31 @@ function moveKeyfile()
     printf "]\n"
 }
 
+function enableOrDisableKeys()
+{
+    local action=$1
+    shift
+
+    for key in $@; do
+        local enabledKey="$keydir/$key"
+        local disabledKey="$keydir/disabled.$key"
+
+        if [ ! -e $enabledKey ] && [ ! -e $disabledKey ]; then
+            echo "$key does not seem to exist."
+        elif [ $action == "enable" ] && [ -e $enabledKey ]; then
+            echo "$key is already enabled."
+        elif [ $action == "disable" ] && [ -e $disabledKey ]; then
+            echo "$key is already disabled."
+        elif [ $action == "disable" ]; then
+            moveKeyfile $enabledKey $disabledKey
+        elif [ $action == "enable" ]; then
+            moveKeyfile $disabledKey $enabledKey
+        else
+            echo "Oops! Something went wrong. $action is not a valid action."
+        fi
+    done
+}
+
 function addToAgentByPrefix()
 {
     if [ ${#@} -eq 0 ]; then
@@ -47,7 +71,7 @@ function echoStringIfNotEmpty()
 
 function echoActiveKeys()
 {
-    local output=`ssh-add -L | sed -e 's/.*private\///' | sed -e 's/ssh-rsa.*//'`
+    local output=`ssh-add -L | sed -e 's/The agent has no identities.//' | sed -e "s|$keydir/||" | sed -e 's|ssh-rsa.* ||'`
 
     for key in $output; do
         echoStringIfNotEmpty $key
@@ -56,20 +80,22 @@ function echoActiveKeys()
 
 function echoEnabledKeys()
 {
-    local keyfiles=$private/*
+    local activeKeys=`ssh-add -L | sed -e 's/The agent has no identities.//' | sed -e "s|$keydir/||" | sed -e 's|ssh-rsa.* ||'`
 
-    for key in $keyfiles; do
-        local string=`echo $key | sed -e 's/.*private\///' | sed -e 's/disabled.*//'`
-        echoStringIfNotEmpty $string
+    for key in ${keys[@]}; do
+        local string=`echo $key | sed -e "s|${keydir}/||"`
+        if [[ ! "$activeKeys" =~ "$string" ]]; then
+            echoStringIfNotEmpty $string
+        fi
     done
 }
 
 function echoDisabledKeys()
 {
-    local keyfiles=$private/disabled*
+    local disabledKeys=$(find $keydir -type f ! -name '*.pub' -name 'disabled.*')
 
-    for key in $keyfiles; do
-        local string=`echo $key | sed -e 's/.*private\/disabled.//'`
+    for key in $disabledKeys; do
+        local string=`echo $key | sed -e "s|${keydir}/disabled\.||"`
         echoStringIfNotEmpty $string
     done
 }
@@ -78,37 +104,33 @@ case "$1" in
     disable)
         shift
         echo "Disabling:"
-        for keyfile in $@; do
-            moveKeyfile $private/$keyfile $private/disabled.$keyfile
-        done
+        enableOrDisableKeys "disable" $@
         ;;
     enable)
         shift
         echo "Enabling:"
-        for keyfile in $@; do
-            moveKeyfile $private/disabled.$keyfile $private/$keyfile
-        done
+        enableOrDisableKeys "enable" $@
         ;;
     export)
         shift
         echo "Listing public key information:" && echo
 
-        for keyfile in $@; do
-            pubfile="$public/$keyfile.pub"
-            privfile="$private/$keyfile"
-            disabled="$private/disabled.$keyfile"
+        for keyfile in $targets; do
+            publicKey="$keydir/$keyfile.pub"
+            privateKey="$keydir/$keyfile"
+            isDisabled="$keydir/disabled.$keyfile"
 
             printf "[ $keyfile ] "
-            if [ -e $disabled ]; then
+            if [ -e $isDisabled ]; then
                 printf "is disabled, skipping.\n"
-            elif [ ! -e $privfile ]; then
+            elif [ ! -e $privateKey ]; then
                 printf "missing private key, skipping.\n"
-            elif [ ! -e $pubfile ]; then
+            elif [ ! -e $publicKey ]; then
                 printf "missing private key, skipping.\n"
-            elif [ ! -r $pubfile ]; then
+            elif [ ! -r $publicKey ]; then
                 printf "public key is not readable, skipping.\n"
             else
-                printf "\n" && cat $pubfile
+                printf "\n" && cat $publicKey
             fi
 
             echo
@@ -127,6 +149,7 @@ case "$1" in
         done
         ;;
     status|list|ls)
+        shift
         echo
         echo "SKM Status:"
 
