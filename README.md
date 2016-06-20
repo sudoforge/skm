@@ -10,10 +10,18 @@ list these below:
 
 ### Key locations
 
-1.  Private keys are stored in `~/.ssh/private`
-2.  Public keys are stored in `~/.ssh/public`
+1.  Both public and private keys are stored in `~/.ssh/keys`
 
 ### Key naming scheme
+
+SKM was designed with the idea of "grouped" keys. Often times, I find myself
+booting up one of my machines to ssh into a single server, or to work on a
+single particular project -- before shutting down again.
+
+Because of this, SKM supports adding single keys, groups of keys, or all keys at
+once. Follow the naming scheme below to set up your groups correctly.
+
+_Support for custom groups is planned for the future._
 
 | Usage      | Example usage           | Example private name | Example public name |
 | ---------- | ----------------------- | -------------------- | ------------------- |
@@ -22,10 +30,12 @@ list these below:
 
 ## Installation
 
-```txt
+```bash
 git clone https://github.com/bddenhartog/simple-key-manager
 
 cd simple-key-manager
+
+chmod u+x skm
 
 ln -sf $(pwd)/skm /usr/bin/skm
 ```
