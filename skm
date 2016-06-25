@@ -144,8 +144,8 @@ case "$1" in
         ;;
     all)
         echo "Adding all enabled keys:"
-        for list in "${keys[@]}"; do
-            ssh-add $list
+        for key in "${keys[@]}"; do
+            ssh-add $key
         done
         ;;
     status|list|ls)
