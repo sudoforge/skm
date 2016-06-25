@@ -4,8 +4,8 @@ keydir=~/.ssh/keys
 sp="    "
 
 declare -A keys
-keys[ops]=$(find $keydir -type f ! -name '*.pub' -name 'ops.*')
-keys[vcs]=$(find $keydir -type f ! -name '*.pub' -name 'vcs.*')
+keys[ops]=$(find $keydir -type f ! -name '*.pub' -name 'ops.*' | sort)
+keys[vcs]=$(find $keydir -type f ! -name '*.pub' -name 'vcs.*' | sort)
 
 function moveKeyfile()
 {
