@@ -4,22 +4,30 @@ keydir=~/.ssh/keys
 sp="    "
 
 declare -A keys
-keys[ops]=$(find $keydir -type f ! -name '*.pub' -name 'ops.*' | sort)
-keys[vcs]=$(find $keydir -type f ! -name '*.pub' -name 'vcs.*' | sort)
+for prefix in $(\
+    find ${keydir} -type f ! -name '*.pub' | \
+    sed -e "s|${keydir}/||" | \
+    sed -e "s/\..*$//" | \
+    sort -u); do
+    keys[${prefix}]=$(\
+        find ${keydir} -type f ! -name '*.pub' -name "${prefix}.*" | \
+        sed -e "s|${keydir}/||" | \
+        sort)
+done
 
 function moveKeyfile()
 {
-    local shortname=`echo $1 | sed -e 's/.*disabled.//'`
-    printf "$sp$shortname... ["
-    if [ -e $1 ] && [ ! -e $2 ]; then
-        mv $1 $2
+    local shortname=`echo ${1} | sed -e 's/.*disabled.//'`
+    printf "${sp}${shortname}... ["
+    if [ -e ${1} ] && [ ! -e ${2} ]; then
+        mv ${1} ${2}
 
-        if [ $? -eq 0 ]; then
+        if [ ${?} -eq 0 ]; then
             printf "OKAY"
         else
             printf "FAIL"
         fi
-    elif [ -e $2 ]; then
+    elif [ -e ${2} ]; then
         printf "SKIP"
     else
         printf "MISS"
@@ -28,138 +36,153 @@ function moveKeyfile()
     printf "]\n"
 }
 
-function enableOrDisableKeys()
+function changeKeyStatus()
 {
-    local action=$1
+    local action=${1}
     shift
 
     for key in $@; do
-        local enabledKey="$keydir/$key"
-        local disabledKey="$keydir/disabled.$key"
+        local enabledKey="${keydir}/${key}"
+        local disabledKey="${keydir}/disabled.${key}"
 
-        if [ ! -e $enabledKey ] && [ ! -e $disabledKey ]; then
+        if [ ! -e ${enabledKey} ] && [ ! -e ${disabledKey} ]; then
             echo "$key does not seem to exist."
-        elif [ $action == "enable" ] && [ -e $enabledKey ]; then
+        elif [ ${action} == "enable" ] && [ -e ${enabledKey} ]; then
             echo "$key is already enabled."
-        elif [ $action == "disable" ] && [ -e $disabledKey ]; then
+        elif [ ${action} == "disable" ] && [ -e ${disabledKey} ]; then
             echo "$key is already disabled."
-        elif [ $action == "disable" ]; then
-            moveKeyfile $enabledKey $disabledKey
-        elif [ $action == "enable" ]; then
-            moveKeyfile $disabledKey $enabledKey
+        elif [ ${action} == "disable" ]; then
+            moveKeyfile ${enabledKey} ${disabledKey}
+        elif [ ${action} == "enable" ]; then
+            moveKeyfile ${disabledKey} ${enabledKey}
         else
-            echo "Oops! Something went wrong. $action is not a valid action."
+            echo "Oops! Something went wrong. ${action} is not a valid action."
         fi
     done
 }
 
-function addToAgentByPrefix()
+function addKeysOrGroups()
 {
-    if [ ${#@} -eq 0 ]; then
-        echo "No keys matching the given pattern."
-    else
-        ssh-add $@
+    local skipped=""
+    for param in ${@}; do
+        if [[ ${keys["$param"]} ]]; then
+            for key in ${keys["$param"]}; do
+                if [ -e "${keydir}/${key}" ]; then
+                    ssh-add ${keydir}/${key}
+                else
+                    skipped="${skipped}${param} "
+                fi
+            done
+        elif [ -e "${keydir}/${param}" ]; then
+            ssh-add ${keydir}/${param}
+        else
+            skipped="${skipped}${param} "
+        fi
+    done
+
+    if [ "${skipped}" != "" ]; then
+        echo && echo "Skipped:"
+        for param in ${skipped}; do
+            echo "${param}"
+        done
     fi
 }
 
 function echoStringIfNotEmpty()
 {
-    if [[ ! -z "$1" ]]; then
-        echo "$sp$sp$1"
+    if [[ ! -z "${1}" ]]; then
+        echo "${sp}${sp}${1}"
     fi
 }
 
 function echoActiveKeys()
 {
-    local output=`ssh-add -L | sed -e 's/The agent has no identities.//' | sed -e "s|$keydir/||" | sed -e 's|ssh-rsa.* ||'`
+    local output=`ssh-add -L | sed -e 's/The agent has no identities.//' | sed -e "s|${keydir}/||" | sed -e 's|ssh-rsa.* ||'`
 
-    for key in $output; do
-        echoStringIfNotEmpty $key
+    for key in ${output}; do
+        echoStringIfNotEmpty ${key}
     done
 }
 
 function echoEnabledKeys()
 {
-    local activeKeys=`ssh-add -L | sed -e 's/The agent has no identities.//' | sed -e "s|$keydir/||" | sed -e 's|ssh-rsa.* ||'`
+    local activeKeys=`ssh-add -L | sed -e 's/The agent has no identities.//' | sed -e "s|${keydir}/||" | sed -e 's|ssh-rsa.* ||'`
 
     for key in ${keys[@]}; do
-        local string=`echo $key | sed -e "s|${keydir}/||"`
-        if [[ ! "$activeKeys" =~ "$string" ]]; then
-            echoStringIfNotEmpty $string
+        if [[ ! "${activeKeys}" =~ "${key}" ]]; then
+            echoStringIfNotEmpty ${key}
         fi
     done
 }
 
 function echoDisabledKeys()
 {
-    local disabledKeys=$(find $keydir -type f ! -name '*.pub' -name 'disabled.*')
+    local disabledKeys=$(find ${keydir} -type f ! -name '*.pub' -name 'disabled.*' | sort)
 
-    for key in $disabledKeys; do
-        local string=`echo $key | sed -e "s|${keydir}/disabled\.||"`
-        echoStringIfNotEmpty $string
+    for key in ${disabledKeys}; do
+        local string=`echo ${key} | sed -e "s|${keydir}/disabled\.||"`
+        echoStringIfNotEmpty ${string}
     done
 }
 
-case "$1" in
+case "${1}" in
     disable)
-        shift
         echo "Disabling:"
-        enableOrDisableKeys "disable" $@
+        changeKeyStatus "disable" ${@:2}
         ;;
     enable)
-        shift
         echo "Enabling:"
-        enableOrDisableKeys "enable" $@
+        changeKeyStatus "enable" ${@:2}
         ;;
     export)
-        shift
         echo "Listing public key information:" && echo
 
-        for keyfile in $targets; do
-            publicKey="$keydir/$keyfile.pub"
-            privateKey="$keydir/$keyfile"
-            isDisabled="$keydir/disabled.$keyfile"
+        for keyfile in ${@:2}; do
+            publicKey="${keydir}/${keyfile}.pub"
+            privateKey="${keydir}/${keyfile}"
+            isDisabled="${keydir}/disabled.${keyfile}"
 
-            printf "[ $keyfile ] "
-            if [ -e $isDisabled ]; then
+            printf "[ ${keyfile} ] "
+            if [ -e ${isDisabled} ]; then
                 printf "is disabled, skipping.\n"
-            elif [ ! -e $privateKey ]; then
+            elif [ ! -e ${privateKey} ]; then
                 printf "missing private key, skipping.\n"
-            elif [ ! -e $publicKey ]; then
+            elif [ ! -e ${publicKey} ]; then
                 printf "missing private key, skipping.\n"
-            elif [ ! -r $publicKey ]; then
+            elif [ ! -r ${publicKey} ]; then
                 printf "public key is not readable, skipping.\n"
             else
-                printf "\n" && cat $publicKey
+                printf "\n" && cat ${publicKey}
             fi
 
             echo
         done
         ;;
-    vcs)
-        addToAgentByPrefix ${keys[vcs]}
+    add)
+        if [ "${2}" == "all" ]; then
+            addKeysOrGroups ${keys[@]}
+        elif [ "${2}" != "" ]; then
+            addKeysOrGroups ${@:2}
+        else
+            echo "'skm add' requires at least one parameter."
+        fi
         ;;
-    ops)
-        addToAgentByPrefix ${keys[ops]}
-        ;;
-    all)
-        echo "Adding all enabled keys:"
-        for key in "${keys[@]}"; do
-            ssh-add $key
-        done
-        ;;
-    status|list|ls)
-        shift
+    ls)
+        echo
+        echo "${sp}[ ACTIVE KEYS ]"
+        echoActiveKeys
+        ;; 
+    status)
         echo
         echo "SKM Status:"
 
-        echo "$sp[ ACTIVE ]"
+        echo "${sp}[ ACTIVE ]"
         echoActiveKeys
         echo
-        echo "$sp[ ENABLED ]"
+        echo "${sp}[ ENABLED ]"
         echoEnabledKeys
         echo
-        echo "$sp[ DISABLED ]"
+        echo "${sp}[ DISABLED ]"
         echoDisabledKeys
         ;;
     clear)

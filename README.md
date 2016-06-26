@@ -15,18 +15,21 @@ list these below:
 ### Key naming scheme
 
 SKM was designed with the idea of "grouped" keys. Often times, I find myself
-booting up one of my machines to ssh into a single server, or to work on a
-single particular project -- before shutting down again.
+booting up one of my machines to ssh into few servers, or to work on a few
+specific projects -- before shutting down again.
 
-Because of this, SKM supports adding single keys, groups of keys, or all keys at
-once. Follow the naming scheme below to set up your groups correctly.
+Because of this, SKM supports adding keys to the agent one at a time, in groups,
+or all at once. "Groups" are created by naming your keyfiles with a common
+prefix. Look to the table below for an example.
 
-_Support for custom groups is planned for the future._
+| Group Tag  | Example private name | Example public name |
+| ---------- | -------------------- | ------------------- |
+| vcs        | vcs.github           | vcs.github.pub      |
+| mytag      | mytag.somekey        | mytag.somekey.pub   |
 
-| Usage      | Example usage           | Example private name | Example public name |
-| ---------- | ----------------------- | -------------------- | ------------------- |
-| VCS        | Github, Bitbucket, etc. | vcs.github           | vcs.github.pub      |
-| Operations | SSHing into a server    | ops.myserver         | ops.myserver.pub    |
+Note that you do not need to follow this naming scheme if you do not want to
+take advantage of the grouping feature. You are free to name your keys whatever
+you wish, and `skm add` will handle it properly.
 
 ## Installation
 
@@ -46,17 +49,25 @@ _You can replace /usr/bin in the last command with any directory in your PATH._
 
 Now on to the easy bit. Review the table below and you're good to go!
 
-| Command          | Description                                          |
-| ---------------- | ---------------------------------------------------- |
-| all              | Uses `ssh-add` to add all keys                       |
-| vcs              | Uses `ssh-add` to add all keys prefixed with `vcs.`  |
-| ops              | Uses `ssh-add` to add all keys prefixed with `ops.`  |
-| ls               | Lists all currently active keys                      |
-| status           | Like `skm ls`, but shows the status of all keys      |
-| clear            | Deletes all identities from the authentication agent |
-| disable {key(s)} | Disables any number of keys                          |
-| enable {key(s)}  | Enables any number of keys                           |
-| export {key(s)}  | Shows the public key for any number of keys          |
+| Command | Example Parameters                    | Description                     |
+| ------- | ------------------------------------- | ------------------------------- |
+| add     | all &#124; {group tags} &#124; {keys} | Adds keys to the agent          |
+| disable | key1 key2 key3 ...                    | Disables keys                   |
+| enable  | key1 key2 key3 ...                    | Enables keys                    |
+| export  | key1 key2 key3 ...                    | Shows public key info           |
+| ls      | none                                  | Lists active keys               |
+| status  | none                                  | Shows the status of all keys    |
+| clear   | none                                  | Clears the authentication agent |
+
+## Example actions
+
+| Command                                      | Explanation                                           |
+| -------------------------------------------- | ----------------------------------------------------- |
+| `$ skm add all`                              | Adds all keys in `~/.ssh/keys` to the agent           |
+| `$ skm add tagA tagB.keyname`                | Adds all tags prefixed with `tagA` and `tagB.keyname` |
+| `$ skm disable tagA.key1 tagA.key2`          | Disables `tagA.key1` and `tagA.key2`                  |
+| `$ skm enable tagA.key2`                     | Enables `tagA.key2`                                   |
+| `$ skm export tagB.key3 tagA.key2 tagC.key4` | Outputs the public key info for the specified keys    |
 
 ## Contributing
 
