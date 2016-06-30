@@ -5,12 +5,12 @@ sp="    "
 
 declare -A keys
 for prefix in $(\
-    find ${keydir} -type f ! -name '*.pub' | \
+    find ${keydir} -type f ! -name 'disabled\.*' ! -name '*\.pub' | \
     sed -e "s|${keydir}/||" | \
     sed -e "s/\..*$//" | \
     sort -u); do
     keys[${prefix}]=$(\
-        find ${keydir} -type f ! -name '*.pub' -name "${prefix}.*" | \
+        find ${keydir} -type f ! -name '*\.pub' -name "${prefix}.*" | \
         sed -e "s|${keydir}/||" | \
         sort)
 done
