@@ -3,17 +3,6 @@
 Simple Key Manager (**SKM**) is a small shell script designed to simplify common
 interactions with SSH keys.
 
-## This project is no longer maintained.
-
-Maintaining multiple keys is a lot of work for very little benefit: if the main
-workstation is compromised, _all_ of the keys on that workstation are compromised,
-so using multiple keys for a single identity (person, machine, workstation, etc) 
-doesn't really provide any additional security benefits. The author recommends
-using a single key, and automating as much as possible to reduce or remove the
-need to ever connect directly to a remote host.
-
-The following content represents the README prior to deprecation.
-
 ## Assumptions
 
 By default, SKM makes a few assumptions about how your keys are stored. I'll
