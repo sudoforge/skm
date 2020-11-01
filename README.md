@@ -3,6 +3,26 @@
 Simple Key Manager (**SKM**) is a small shell script designed to simplify common
 interactions with SSH keys.
 
+## This project is no longer maintained.
+
+Maintaining multiple keys is a lot of work for very little benefit: if the main
+workstation is compromised, _all_ of the keys on that workstation are
+compromised, so using multiple keys for a single identity (person, machine,
+workstation, etc) doesn't really provide any additional security benefits. The
+author recommends using a single key, and automating as much as possible to
+reduce or remove the need to ever connect directly to a remote host.
+
+Specifically, the author recommends using a GPG authentication subkey, and
+letting `gpg-agent` act like `ssh-agent`. An example of this configuration can
+be viewed [in the author's dotfiles][gpg-subkey], with various tutorials around
+the web. Feel free to reach out if you need help.
+
+---
+
+The following content represents the README prior to deprecation.
+
+[gpg-subkey]: https://github.com/sudoforge/dotfiles/blob/trunk/gnupg/.gnupg/gpg-agent.conf#L3
+
 ## Assumptions
 
 By default, SKM makes a few assumptions about how your keys are stored. I'll
